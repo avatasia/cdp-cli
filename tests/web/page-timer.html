@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Page Load Timer</title>
+<script>
+// 在解析 HTML 最早期就读取参数，同步阻塞直到 delay 结束
+// 这样 load 事件会在 delay 秒之后才触发
+(function() {
+  var p = new URLSearchParams(location.search);
+  var sec = Math.max(0, parseFloat(p.get('delay') || '0'));
+  if (sec <= 0) return;
+  var end = Date.now() + sec * 1000;
+  // 同步阻塞：直接占用主线程，load 事件自然延迟
+  while (Date.now() < end) {
+    // busy wait — 阻塞 HTML 解析和 load 事件
+  }
+})();
+</script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: monospace; background: #0d1117; color: #e6edf3; padding: 1.5rem; }
+h1 { font-size: 16px; font-weight: 500; margin-bottom: 1.5rem; color: #8b949e; }
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 12px; }
+.label { font-size: 11px; color: #8b949e; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+.value { font-size: 18px; font-weight: 500; color: #e6edf3; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+.metric { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; }
+.metric .value { font-size: 13px; }
+.badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+.badge-wait { background: #2d2208; color: #d29922; }
+.badge-done { background: #0d2d1a; color: #3fb950; }
+.duration-row { display: flex; gap: 2rem; margin-top: 8px; flex-wrap: wrap; }
+.duration-row > div .label { margin-bottom: 2px; }
+.duration-row > div .value { font-size: 20px; color: #58a6ff; }
+.controls { margin-top: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+button { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 6px 14px; font-size: 13px; font-family: monospace; cursor: pointer; }
+button:hover { background: #30363d; }
+#countdown { font-size: 13px; color: #8b949e; margin-left: 8px; }
+#reload-count { font-size: 12px; color: #8b949e; margin-top: 8px; }
+.param-box { background: #161b22; border: 1px solid #58a6ff44; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; color: #8b949e; }
+.param-box span { color: #58a6ff; font-size: 15px; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<h1>Page Load Timer</h1>
+
+<div class="param-box">
+  delay 参数：<span id="param-display">--</span>
+  &nbsp;&nbsp; 用法：<code>file:///path/page-timer.html?delay=10</code>
+</div>
+
+<div class="card">
+  <div class="label">当前时间（实时）</div>
+  <div class="value" id="now">--</div>
+</div>
+
+<div class="grid4">
+  <div class="metric">
+    <div class="label">页面开始加载</div>
+    <div class="value" id="t-start">--</div>
+  </div>
+  <div class="metric">
+    <div class="label">DOMContentLoaded</div>
+    <div class="value" id="t-dom">-- <span class="badge badge-wait">等待中</span></div>
+  </div>
+  <div class="metric">
+    <div class="label">load 事件触发</div>
+    <div class="value" id="t-load">-- <span class="badge badge-wait">等待中</span></div>
+  </div>
+  <div class="metric">
+    <div class="label">JS 初始化完成</div>
+    <div class="value" id="t-ready">-- <span class="badge badge-wait">等待中</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="label">耗时统计</div>
+  <div class="duration-row">
+    <div>
+      <div class="label">到 DOMContentLoaded</div>
+      <div class="value" id="d-dom">--</div>
+    </div>
+    <div>
+      <div class="label">到 load 事件</div>
+      <div class="value" id="d-load">--</div>
+    </div>
+    <div>
+      <div class="label">到 JS 初始化</div>
+      <div class="value" id="d-ready">--</div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button onclick="setRefresh(5)">5秒刷新</button>
+  <button onclick="setRefresh(10)">10秒刷新</button>
+  <button onclick="setRefresh(30)">30秒刷新</button>
+  <button onclick="stopRefresh()">停止</button>
+  <span id="countdown"></span>
+</div>
+<div id="reload-count"></div>
+
+<script>
+var fmt = function(d) {
+  return d.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    + '.' + String(d.getMilliseconds()).padStart(3, '0');
+};
+
+var p = new URLSearchParams(location.search);
+var delaySec = Math.max(0, parseFloat(p.get('delay') || '0'));
+document.getElementById('param-display').textContent =
+  delaySec > 0 ? delaySec + ' 秒（load 事件被同步阻塞延迟）' : '未设置（无延迟）';
+
+// 页面开始时间用 performance.timing 更准确
+var startTime = new Date(performance.timing.navigationStart);
+document.getElementById('t-start').textContent = fmt(startTime);
+
+var refreshInterval = null, remaining = 0;
+
+var reloadCount = parseInt(sessionStorage.getItem('reloadCount') || '0');
+sessionStorage.setItem('reloadCount', reloadCount + 1);
+if (reloadCount > 0) {
+  document.getElementById('reload-count').textContent = '第 ' + reloadCount + ' 次刷新';
+}
+
+setInterval(function() {
+  document.getElementById('now').textContent = fmt(new Date());
+}, 100);
+
+document.addEventListener('DOMContentLoaded', function() {
+  var t = new Date();
+  document.getElementById('t-dom').innerHTML = fmt(t) + ' <span class="badge badge-done">完成</span>';
+  document.getElementById('d-dom').textContent = (t - startTime) + ' ms';
+});
+
+window.addEventListener('load', function() {
+  var t = new Date();
+  document.getElementById('t-load').innerHTML = fmt(t) + ' <span class="badge badge-done">完成</span>';
+  document.getElementById('d-load').textContent = (t - startTime) + ' ms';
+});
+
+// JS 初始化完成（load 之后的第一个 setTimeout 0）
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    var t = new Date();
+    document.getElementById('t-ready').innerHTML = fmt(t) + ' <span class="badge badge-done">完成</span>';
+    document.getElementById('d-ready').textContent = (t - startTime) + ' ms';
+  }, 0);
+});
+
+function setRefresh(sec) {
+  stopRefresh();
+  remaining = sec;
+  document.getElementById('countdown').textContent = remaining + '秒后刷新...';
+  refreshInterval = setInterval(function() {
+    remaining--;
+    if (remaining <= 0) {
+      location.reload();
+    } else {
+      document.getElementById('countdown').textContent = remaining + '秒后刷新...';
+    }
+  }, 1000);
+}
+
+function stopRefresh() {
+  if (refreshInterval) clearInterval(refreshInterval);
+  document.getElementById('countdown').textContent = '';
+}
+</script>
+</body>
+</html>
