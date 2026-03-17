@@ -35,10 +35,17 @@ export async function listPages(context: CDPContext): Promise<void> {
  */
 export async function newPage(
   context: CDPContext,
-  url?: string
+  url?: string,
+  options: { wait?: boolean } = {}
 ): Promise<void> {
   try {
-    const page = await context.createPage(url);
+    let page;
+
+    if (options.wait && url) {
+      page = await context.createPageAndWait(url);
+    } else {
+      page = await context.createPage(url);
+    }
 
     outputSuccess('Page created', {
       id: page.id,

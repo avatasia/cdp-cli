@@ -64,14 +64,23 @@ cli.command(
   'new [url]',
   'Create a new page/tab',
   (yargs) => {
-    return yargs.positional('url', {
-      describe: 'URL to navigate to',
-      type: 'string'
-    });
+    return yargs
+      .positional('url', {
+        describe: 'URL to navigate to',
+        type: 'string'
+      })
+      .option('wait', {
+        type: 'boolean',
+        description: 'Wait for page load event before returning',
+        alias: 'w',
+        default: false
+      });
   },
   async (argv) => {
     const context = new CDPContext(argv['cdp-url'] as string);
-    await pages.newPage(context, argv.url as string | undefined);
+    await pages.newPage(context, argv.url as string | undefined, {
+      wait: argv.wait as boolean
+    });
   }
 );
 
@@ -334,6 +343,12 @@ cli.command(
         type: 'number',
         description: 'Scale factor to resize the image (0 < scale <= 1)',
         alias: 's'
+      })
+      .option('full-page', {
+        type: 'boolean',
+        description: 'Capture full page including content beyond viewport',
+        alias: 'F',
+        default: false
       });
   },
   async (argv) => {
@@ -343,7 +358,8 @@ cli.command(
       format: argv.format as string,
       quality: argv.quality as number,
       scale: argv.scale as number | undefined,
-      page: argv.page as string
+      page: argv.page as string,
+      fullPage: argv['full-page'] as boolean
     });
   }
 );

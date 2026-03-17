@@ -485,4 +485,18 @@ export class CDPContext {
     });
   }
 
+  async createPageAndWait(url: string): Promise<Page> {
+    const page = await this.createPage(url);
+
+    const ws = await this.connect(page);
+    try {
+      await this.sendCommand(ws, 'Page.enable');
+      await this.waitForEvent(ws, 'Page.loadEventFired', 30000);
+    } finally {
+      ws.close();
+    }
+
+    const pages = await this.getPages();
+    return pages.find(p => p.id === page.id) || page;
+  }
 }

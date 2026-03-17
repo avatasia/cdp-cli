@@ -8,6 +8,28 @@ Command-line interface for Chrome DevTools Protocol (CDP), optimized for LLM age
 
 ## New Features
 
+### `--wait` for `new` and `go` Commands
+Wait for the page `load` event to fire before returning, ensuring the page is fully loaded before continuing:
+
+```bash
+# Create new tab and wait for full page load
+cdp-cli new "https://example.com" --wait
+
+# Navigate and wait for full page load
+cdp-cli go "example" "https://example.com" --wait
+```
+
+Without `--wait`, both commands return as soon as the navigation request is accepted, which may be before the page has finished loading.
+
+### `--full-page` for Screenshots
+Capture the entire page including content beyond the visible viewport:
+
+```bash
+cdp-cli screenshot "example" fullpage.png --full-page
+```
+
+This automatically detects the full scroll height of the page, overrides the viewport size, and captures everything in one shot.
+
 ### `--inspect` for Console Output
 Fully expand nested objects and arrays in console messages instead of seeing `Object` or `Array(12)`:
 
@@ -116,6 +138,7 @@ cdp-cli tabs
 ```bash
 cdp-cli new "https://example.com"
 cdp-cli new  # Empty page
+cdp-cli new "https://example.com" --wait  # wait for page load event
 ```
 
 **go** - Navigate page (URL, back, forward, reload)
@@ -124,6 +147,7 @@ cdp-cli go "example" "https://github.com"
 cdp-cli go "example" back
 cdp-cli go "example" forward
 cdp-cli go "example" reload
+cdp-cli go "example" "https://github.com" --wait  # wait for page load event
 ```
 
 **close** - Close a page
@@ -221,6 +245,9 @@ cdp-cli screenshot "example" --output screenshot.png --scale 0.5
 
 # Output base64 (NDJSON)
 cdp-cli screenshot "example"
+
+# Full page screenshot (captures beyond viewport)
+cdp-cli screenshot "example" fullpage.png --full-page
 ```
 
 Optional flags:
@@ -228,6 +255,7 @@ Optional flags:
 - `--format, -f`: Choose `jpeg`, `png`, or `webp`
 - `--quality, -q`: JPEG quality (0-100)
 - `--scale, -s`: Downscale width and height by the factor (`0 < scale <= 1`)
+- `--full-page, -F`: Capture full page including content beyond viewport
 
 ### Network Inspection
 

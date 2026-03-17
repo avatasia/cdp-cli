@@ -410,7 +410,7 @@ export async function evaluate(
  */
 export async function screenshot(
   context: CDPContext,
-  options: { output: string; format?: string; page: string; quality?: number; scale?: number }
+  options: { output: string; format?: string; page: string; quality?: number; scale?: number; fullPage?: boolean; }
 ): Promise<void> {
   let ws;
   try {
@@ -465,10 +465,33 @@ export async function screenshot(
       quality: format === 'jpeg' ? quality : undefined
     };
 
-    if (scale !== 1) {
+    if (options.fullPage) {
+      // Get full page dimensions via JS
+      const sizeResult = await context.sendCommand(ws, 'Runtime.evaluate', {
+        expression: `({
+          width: document.documentElement.scrollWidth,
+          height: document.documentElement.scrollHeight
+        })`,
+        returnByValue: true
+      });
+
+      const { width, height } = sizeResult.result.value;
+
+      // Override viewport to full page size
+      await context.sendCommand(ws, 'Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: false
+      });
+
+      captureParams.captureBeyondViewport = true;
+      captureParams.clip = { x: 0, y: 0, width, height, scale: 1 };
+
+    } else if (scale !== 1) {
       const layoutMetrics = await context.sendCommand(ws, 'Page.getLayoutMetrics');
-      const width = layoutMetrics?.cssVisualViewport ?.clientWidth;
-      const height = layoutMetrics?.cssVisualViewport ?.clientHeight;
+      const width = layoutMetrics?.cssVisualViewport?.clientWidth;
+      const height = layoutMetrics?.cssVisualViewport?.clientHeight;
 
       if (!width || !height) {
         throw new Error('Unable to determine viewport dimensions for scaling.');
