@@ -221,7 +221,7 @@ export async function listConsole(
           return;
         }
 
-        await expandMessageText(context, ws, message, options.inspect || false);
+        await expandMessageText(context, ws!, message, options.inspect || false);
         const formatted = formatConsoleMessage(message, options);
         outputRaw(formatted);
       });
