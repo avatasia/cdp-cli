@@ -462,4 +462,27 @@ export class CDPContext {
     throw new Error(`Failed to create page: ${response.statusText}`);
   }
 
+  /**
+ * Wait for a specific CDP event once
+ */
+  waitForEvent(ws: WebSocket, method: string, timeoutMs: number = 30000): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        ws.off('message', handler);
+        reject(new Error(`Timeout waiting for event: ${method}`));
+      }, timeoutMs);
+
+      const handler = (data: Buffer) => {
+        const message: CDPMessage = JSON.parse(data.toString());
+        if (message.method === method) {
+          clearTimeout(timeout);
+          ws.off('message', handler);
+          resolve(message.params);
+        }
+      };
+
+      ws.on('message', handler);
+    });
+  }
+
 }
